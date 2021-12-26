@@ -1,0 +1,8 @@
+<ul>
+    <li><a href='{% url "products:create" %}'>new</a></li>
+    <li><a href='{% url "products:list" %}'>list</a></li>
+    <li><a href='{% url "products:update" object.pk %}'>update</a></li>
+    <li><a href='{% url "products:delete" object.pk %}'>delete</a></li>
+</ul>
+
+{% include "products/product_object.html" %}

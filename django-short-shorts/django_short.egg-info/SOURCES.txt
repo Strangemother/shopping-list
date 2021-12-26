@@ -1,0 +1,6 @@
+setup.py
+django_short.egg-info/PKG-INFO
+django_short.egg-info/SOURCES.txt
+django_short.egg-info/dependency_links.txt
+django_short.egg-info/top_level.txt
+django_short.egg-info/zip-safe

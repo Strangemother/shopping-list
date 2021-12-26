@@ -1,0 +1,11 @@
+Metadata-Version: 1.1
+Name: django-short
+Version: 0.1
+Summary: Django Short
+Home-page: http://github.com/strangemother/django-short
+Author: Jay Jagpal
+Author-email: jay@strangemother.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3

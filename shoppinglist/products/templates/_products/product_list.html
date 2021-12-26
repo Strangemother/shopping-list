@@ -1,0 +1,11 @@
+{% load static %}
+
+<ul>
+    <li><a href='{% url "products:create" %}'>new</a></li>
+</ul>
+
+<ul>
+    {% for item in object_list %}
+    <li><a href='{% url "products:detail" item.pk %}'>{{ item }}</a></li>
+    {% endfor %}
+</ul>
