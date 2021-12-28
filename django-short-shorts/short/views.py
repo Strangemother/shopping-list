@@ -29,7 +29,14 @@ class ShortMixin:
         mapped_name = short_names.get_mapped_name(self)
         p = Path(v[0])
         name = p.stem.replace(f'{self.model.__name__.lower()}_', '')
-        v += [f'short/crud/{name}.html', f'short/crud/{mapped_name}.html']
+        v += [
+            # user general overide.
+            f'crud/{name}.html',
+            f'crud/{mapped_name}.html',
+            # Builtins
+            f'short/crud/{name}.html',
+            f'short/crud/{mapped_name}.html',
+        ]
         return v
 
     def get_context_data(self, **kwargs):
@@ -110,7 +117,39 @@ def crud_classes(target_name=None, model_class=None, success_url=None,
 
 
 def history_classes(target_name=None, model_class=None, models=None, class_module_name=None,
-                    module_needles=None, **base_definition):
+                    module_needles=None, **base_definition) -> tuple:
+    """Generate a range of "history" class-based-views for the given `model_class`
+    list. This is synonymous to calling `short.views.history` repeatedly.
+
+    Given a `model_class` as a `models.Model`, `list` or `tuple` type, build a
+    set of Archive based views into the `target_name`.
+
+    Arguments:
+        **base_definition {dict} -- attributtes given to all classes as base
+                                    class properties and methods
+
+    Keyword Arguments:
+        target_name {str} -- Name of the target module to insert the newly generated
+            classes. If `None` the `__name__` of the calling method module
+            is applied. (default: {None})
+        model_class {models.Model, tuple, list} -- The target model or models
+            to generate views. If `None` dicover the models using
+            `short.views.discover_models` (default: {None})
+        models {list, tuple} -- Use an explicit list of `models` over `model_class`.
+            If `None` the model_class is used (default: {None})
+        class_module_name {str} -- The string name of the module to insert the
+            newly generated classes, such as `"products.views"`.
+            If `None` attempt to capture the _last frame_ caller module name,
+            defaulting to the calling module name. (default: {None})
+        module_needles {list, tuple} -- A list of module names to focus upon
+            if model discovery is used. If a dicovered model originated from
+            a module name within the needles, history views will be created
+            (default: {None}).
+
+    Returns:
+        {tuple} -- A tuple of generated classes. The class-based-views already
+                 exist within the `target_name`
+    """
 
     if target_name is None:
         target_name = inspect.currentframe().f_back.f_globals['__name__']
@@ -190,8 +229,7 @@ def crud(model, class_module_name=None, success_url=None, success_url_bit='list'
         (DeleteView, success_url_d),
     )
 
-    packs = gen_thin_packs(parts, base_definition)
-    return gen_packed_views(name, class_module_name, packs)
+    return thin_parts_gen(parts, name, base_definition, class_module_name)
 
 
 def history(model, class_module_name=None, **base_definition):

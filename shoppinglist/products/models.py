@@ -30,7 +30,7 @@ class Location(models.Model):
 
 
 class Product(models.Model):
-    _short_string = '{self.name} x{self.count} - {self.location}'
+    _short_string = '"{self.name}" x{self.count}'
 
     name = shorts.chars()
     unique_id = shorts.chars(default=rand_str)
@@ -47,5 +47,7 @@ class Product(models.Model):
     image = shorts.image()
 
     def get_short_string(self):
-        s = '{self.name} - {self.location}' if self.count == 1 else self._short_string
+        s = '"{self.name}"' if self.count == 1 else self._short_string
+        if s is None:
+            return super().__str__()
         return s.format(self=self)

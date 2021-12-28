@@ -36,8 +36,8 @@ from django.conf import global_settings
 # )
 
 INSTALLED_APPS = [
-    'short',
     'products',
+    'short',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
