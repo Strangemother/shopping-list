@@ -5,6 +5,54 @@ Django Short Shorts (Or `short-shorts` for short) helps you quickly build boiler
 > Use Short Shorts for boilerplate, PoC, dev start (or just pure laziness) to quickly write common django components.
 
 
+## Setup
+
+
+Download:
+
+    pip install PATH
+
+
+### Integrate:
+
+Apply the app `short` to your `INSTALLED_APPS` within your `settings.py`:
+
+    INSTALLED_APPS = [
+        # ...
+        'short',
+        # ...
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+    ]
+
+
+You're ready to go.
+
+#### Optional Integration
+
+For usage of some micro tooling you may need to apply an entry to your `context_processors`
+Within the `TEMPLATES` entity, add `short.context.appname` to the `OPTIONS.context_processors`:
+
+    TEMPLATES = [
+        {
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'DIRS': [],
+            'APP_DIRS': True,
+            'OPTIONS': {
+                'context_processors': [
+                    # ...
+                    "short.context.appname",
+                ],
+            },
+        },
+    ]
+
+
+
 ## Quick Guide
 
 
@@ -191,6 +239,26 @@ short_patterns = {
 
 urlpatterns = shorts.paths_dict(views, short_patterns)
 
+```
+
+Within the master `urls.py`, you can use `short.urls.path_includes`, of which performs the
+same as `include` with extras. The `error_handlers` generates error urls such as `404`:
+
+_shoppinglist/urls.py_
+```py
+from django.contrib import admin
+from django.urls import path, include
+
+from short.urls import path_includes, error_handlers
+
+app_name = 'shoppinglist'
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+] + path_includes('products')
+
+
+error_handlers(__name__)
 ```
 
 ### Admin
