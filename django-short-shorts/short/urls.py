@@ -79,12 +79,36 @@ def path_includes(*names):
     return paths(**r)
 
 
+def path_urls(views, path_rels):
+    for url, view_call in path_rels:
+        pass
+
+
+def index(name):
+    return
+
+
 def path_include(url_name, url_module, path_name=None):
     """
         path_include('products/',)
         path_include('mythings/', 'products.urls', ) # name=mythings
         path_include('mythings/', 'products.urls', 'items') # name=items
         path_include('products/', 'products.urls', 'products')
+
+    Apply like this:
+
+        from django.contrib import admin
+        from django.urls import path, include
+
+        from short.urls import path_include, path_includes, error_handlers
+
+        app_name = 'shoppinglist'
+
+        urlpatterns = [
+            path('admin/', admin.site.urls),
+        ] + path_includes('products')
+
+        error_handlers(__name__)
     """
     r = {}
     url = url_name
@@ -169,6 +193,8 @@ def paths_named(views, view_prefix=None, ignore_missing_views=False, url_pattern
 
     or less:
 
+        from short import urls as shorts
+
         urlpatterns = shorts.paths_named(views,
             view_prefix='Product',
             # name_genfix="{view_prefix}{mapped_name}View",
@@ -193,6 +219,40 @@ def paths_named(views, view_prefix=None, ignore_missing_views=False, url_pattern
         url_pattern_prefix=url_pattern_prefix,
         url_name_prefix=url_name_prefix,
         ignore_missing_views=ignore_missing_views)
+
+
+def paths_tuple(views, patterns, **kw):
+    """Setup URLS using a tuple of tuples, with each given tuple prepared
+    and passed to the paths_dict:
+
+        from short import urls as shorts
+
+        short_patterns = (
+            ('NoteIndexView', 'index', '' ),
+            ('EntryJsonList', 'entity-list-json', 'entry/list/json/' ),
+            ('EntryDetailView', 'entry-detail-json', '<str:pk>/json/' ),
+        )
+
+        urlpatterns = shorts.paths_tuple(views, short_patterns)
+
+    Of which is the same as:
+
+        from short import urls as shorts
+
+        short_patterns = dict(
+            NoteIndexView=('index', ''),
+            EntryJsonList=('entity-list-json', 'entry/list/json/',),
+            EntryDetailView=('entry-detail-json', '<str:pk>/json/', ),
+        )
+
+        urlpatterns = shorts.paths_dict(views, short_patterns)
+    """
+    d_patt = {}
+
+    for key, *params in patterns:
+        d_patt[key] = params
+
+    return paths_dict(views, d_patt, **kw)
 
 
 def paths_dict(views, patterns, view_prefix=None,
@@ -279,7 +339,7 @@ def paths(**path_dict):
     """
     flag_class = View
     r = ()
-    for name, params in path_dict.items():
+    for name, params in dict(path_dict).items():
         (url, unit) = params
         func = unit
         if isinstance(func, tuple) is False:
@@ -292,3 +352,40 @@ def paths(**path_dict):
         r += (p,)
 
     return list(r)
+
+
+import sys
+
+def error_handlers(name, setup=None, template_dir=None):
+    """Implement the urls for the given module name
+
+        error_handers(__name__)
+        error_handers(__name__, {
+                400: 'shorts.views.errors.handler400',
+                403: 'shorts.views.errors.handler403',
+                404: 'shorts.views.errors.handler404',
+                500: 'shorts.views.errors.handler500',
+            }, template_dir='short/errors/'
+        )
+
+    """
+
+    defaults = {
+        400: 'short.views.errors.handler400',
+        403: 'short.views.errors.handler403',
+        404: 'short.views.errors.handler404',
+        500: 'short.views.errors.handler500',
+    }
+    default_template_dir = 'short/errors/'
+    template_dir = template_dir or default_template_dir
+    defaults.update(setup or {})
+
+    # rebuild the handler function names and set into the target module.
+    _package, _module = name.split('.')
+    # class_module_name = f'{_package}.views'
+    module = sys.modules[name]
+
+    # Push the new handler name into the targt module (shoppinglist.urls)
+    for error_num, handler_path in defaults.items():
+        handler_name = f'handler{error_num}'
+        setattr(module, handler_name, handler_path)
