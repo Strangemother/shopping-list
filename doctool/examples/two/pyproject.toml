@@ -1,0 +1,11 @@
+[docs.base]
+name = 'eggs'
+utils = [
+    'utils.General',
+    '__existing__',
+    'utils.Writer',
+]
+
+[docs.printer]
+# self.config.docs.printer.relative
+relative=true

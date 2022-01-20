@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-8qotu%bwchuzq2+5100i$c%wu5ff2s=g@1=axh2#!5ziz&ph70
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 from django.conf import global_settings

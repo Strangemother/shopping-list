@@ -1,0 +1,3 @@
+{{ content }}
+---
+built into this file from the `{{ base_markdown_template_name }}` for page: "{{ title }}"

@@ -11,16 +11,7 @@ sys.path.append(HERE.as_posix())
 
 import markdown
 
-class RenderBase(object):
-    """Convert an expensive config dict into a html file."""
-    def __init__(self, config=None):
-
-        if config:
-            self.setup(config)
-
-    def setup(self, config):
-        self.config = config
-        self.env = self.gen_env()
+class JinjaEnvLoaders(object):
 
     def get_loaders(self):
         names = self.config.get_template_locations()
@@ -36,6 +27,17 @@ class RenderBase(object):
         )
         return env
 
+
+class RenderBase(JinjaEnvLoaders):
+    """Convert an expensive config dict into a html file."""
+    def __init__(self, config=None):
+        if config:
+            self.setup(config)
+
+    def setup(self, config):
+        self.config = config
+        self.env = self.gen_env()
+
     def get_template_filename(self, name):
         """Given a name, return the template from the existing environment
         and its template location.
@@ -49,7 +51,7 @@ class RenderBase(object):
         output HTML.
         """
         data_store = data_store or {'filename': filename}
-
+        # first render, may include {{vars}}.
         md_html = self.render_markdown(filename, data_store)
         data_store.setdefault('rendered_content', md_html)
 
@@ -62,7 +64,40 @@ class RenderBase(object):
         return self.render_markdown_text(data_store['content'])
 
     def render_markdown_text(self, text):
-        return markdown.markdown(text)
+        """
+
+            Extension               Entry Point Dot Notation
+            Extra   extra                       markdown.extensions.extra
+                Abbreviations       abbr        markdown.extensions.abbr
+                Attribute Lists     attr_list   markdown.extensions.attr_list
+                Definition Lists    def_list    markdown.extensions.def_list
+                Fenced Code Blocks  fenced_code markdown.extensions.fenced_code
+                Footnotes           footnotes   markdown.extensions.footnotes
+                Markdown in HTML    md_in_html  markdown.extensions.md_in_html
+                Tables              tables      markdown.extensions.tables
+            Admonition              admonition  markdown.extensions.admonition
+            CodeHilite              codehilite  markdown.extensions.codehilite
+            Legacy Attributes       legacy_attrs markdown.extensions.legacy_attrs
+            Legacy Emphasis         legacy_em   markdown.extensions.legacy_em
+            Meta-Data               meta        markdown.extensions.meta
+            New Line to Break       nl2br       markdown.extensions.nl2br
+            Sane Lists              sane_lists  markdown.extensions.sane_lists
+            SmartyPants             smarty      markdown.extensions.smarty
+            Table of Contents       toc         markdown.extensions.toc
+            WikiLinks               wikilinks   markdown.extensions.wikilinks
+        """
+        extensions = [
+            'extra',
+            'admonition',
+            'codehilite',
+            'meta',
+            'sane_lists',
+            'smarty',
+            'toc',
+            'wikilinks',
+        ]
+
+        return markdown.markdown(text, extensions=extensions)
 
     def stash_render_template_name(self, data_store, filename=None, template=None):
         # Get and restore the base template name
@@ -78,12 +113,16 @@ class RenderBase(object):
         return self.env.get_template(bn).render(data_store)
 
 
-class RecursiveMarkdownTemplate(RenderBase):
-    def setup(self, config):
-        super().setup(config)
-        self.markdown_env = self.gen_markdown_env()
+class JinjaMarkdownEnvLoaders(object):
+    """Provide methods to create a Jinja environment targeting the markdown file-set
+    This is a replica of the standard site _(html)_ jinja env, but pointing to
+    a special markdown/ template directory.
+    """
 
     def gen_markdown_env(self):
+        """Create a new jina Environment, with loaders specific to the markdown
+        templates.
+        """
         fls = self.get_markdown_loaders()
         env = Environment(
             loader=ChoiceLoader(fls),
@@ -96,6 +135,12 @@ class RecursiveMarkdownTemplate(RenderBase):
         fls = tuple(FileSystemLoader(*x) for x in names)
         print('Generating', names)
         return fls
+
+
+class RecursiveMarkdownTemplate(RenderBase, JinjaMarkdownEnvLoaders):
+    def setup(self, config):
+        super().setup(config)
+        self.markdown_env = self.gen_markdown_env()
 
     def get_markdown_template_filename(self, filename):
         """Return the target markdown template, found within one of the asset
@@ -111,22 +156,31 @@ class RecursiveMarkdownTemplate(RenderBase):
         return 'default.mdt'
 
     def render_markdown(self, filename, data_store):
-        """Extend the markdown renderer to _template_ a given markdown.
+        """Called by the parent execution, extend the markdown renderer
+        to _template_ a given markdown. Override The default to inject a
+        template syntax
 
         The default functionality accepts the content and returns the HTML:
 
             return markdown.markdown(data_store['content'])
 
-        Override this to inject a template syntax
+        However this is replaced with:
+
+        1. Set the base_markdown_template_name,
+        2. render the markdown file, into a _rendered markdown file_
+        3. store into 'content' for later.
+
+        This markdown file will proceed through a _last stage variable renderer_
+        before injection to the site HTML as an include variable.
         """
         # Get base file
         base_name = self.get_markdown_template_filename(filename)
         data_store.setdefault('base_markdown_template_name', base_name)
 
-        bn = data_store.get('base_markdown_template_name')
+        base_md_name = data_store.get('base_markdown_template_name')
         # the result is a markdown file, with any template parts injecting
         # markdown or _next render_ statements.
-        new_md = self.markdown_env.get_template(bn).render(data_store)
+        new_md = self.markdown_env.get_template(base_md_name).render(data_store)
 
         # The new markdown (as finished html) is applied as a variable to
         # the templating lib but is not _templated_, still containing {{vars}}

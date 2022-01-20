@@ -1,4 +1,6 @@
 import markdown
+import unicodedata, re
+from pathlib import Path
 
 
 class Utility(object):
@@ -62,7 +64,10 @@ class Utility(object):
         """
         pass
 
+
 class Printer(Utility):
+    """An example utility to _print_ the outbound file during iteration.
+    """
     name = 'printer'
 
     def prepare(self):
@@ -74,9 +79,56 @@ class Printer(Utility):
             p = p.relative_to(self.root_path)
         print('   ', p)
 
-from pathlib import Path
 
 class RenderFilesUtility(Utility):
+    """A Generic "file handler" utility, providing the function method
+    `render_file` - called when the `render` phase.
+    """
+    def get_root_output_dirs(self):
+        """Return a list of root directories the output file should be applied.
+        """
+        return [self.config.get_output_dir()]
+
+    def get_destination_paths(self, file):
+        """Multiple output destination directories are allowed. In the top of
+        the markdown, add an array of destination_dirs.
+        This may be coupled with a separate destination_filename. The output
+        directory cannot change and is collected from the self.config.
+
+            title: another
+            destination_dirs: other/foo/
+                              egg/butter
+            ---
+            # Hello
+        """
+        data_store = self.config.get_store(file)
+
+        dest_fn = data_store.get('destination_filename', None)
+        if dest_fn is None:
+            dest_fn = file.name
+
+        meta = data_store.get('meta') or {}
+        dest_dirs = meta.get('destination_dirs', None)
+
+        if dest_dirs is None:
+            dest_dirs = (Path(''),)
+            rp = self.config.get_root_path()
+            dest_dirs = (file.relative_to(rp).parent, )
+
+        destinations = ()
+        rel_destinations = ()
+
+        # Iterate all outbound root sites, all directories.
+        # and the filename
+        output_dirs = self.get_root_output_dirs()
+        for output_dir in output_dirs:
+            for d_dir in dest_dirs:
+                out_path = output_dir / d_dir / dest_fn
+                rel_out_path =  d_dir / dest_fn
+                destinations += (out_path, )
+                rel_destinations += (rel_out_path, )
+
+        return (rel_destinations, destinations,)
 
     def render_out(self, renderer):
         self.render_files(renderer)
@@ -99,6 +151,8 @@ class RenderFilesUtility(Utility):
 
 
 class General(RenderFilesUtility):
+    """The _General_ free tool incorporating most of the markdown parsing.
+    """
     name = 'general'
 
     def preprocess(self):
@@ -184,9 +238,19 @@ class General(RenderFilesUtility):
 
 
 class Writer(RenderFilesUtility):
+    """The Writer class acts as a last-stage utility, converting the in-memory
+    file content to a directory of html files; a "site".
+
+    This hooks the `write_all` api method
+    """
 
     def get_files(self):
-        return self.config.get_utils()['general'].files
+        general = self.config.get_utils().get('general')
+        if general is None:
+            print('Writer utility cannot locate the "general" utility')
+            return tuple(x for x in self.config.all_files if x.is_file())
+
+        return general.files
 
     def postprocess_path(self, path):
         """Store the destination after the and cross referencing
@@ -196,7 +260,7 @@ class Writer(RenderFilesUtility):
         if data_store.get('is_file', False) is False:
             return
 
-        destination = self.get_destination(path, data_store)
+        destination = self.get_destination_filname(path, data_store)
         data_store.setdefault('destination_filename', destination)
 
     def render_file(self, filename, data_store, renderer):
@@ -204,14 +268,14 @@ class Writer(RenderFilesUtility):
         render out phase.
 
         Use the 'destination_filename', previously applied in the 'post_process'
-        phase - and likely ammended before this step.
+        phase - and likely amended before this step.
 
         """
         destination = data_store['destination_filename']
         fn = str(data_store['rel_filename'])
         print(f"{fn:<50}, {destination}")
 
-    def get_destination(self, path, data_store):
+    def get_destination_filname(self, path, data_store):
         """Return the relative output filepath of the file."""
 
         meta = data_store['meta']
@@ -232,46 +296,11 @@ class Writer(RenderFilesUtility):
 
     def write_all(self, writer):
         """given a ready writer class generate all the finished files."""
-        self.output_dir = self.config.get_output_dir()
+        # self.output_dir = self.config.get_output_dir()
         files = self.get_files()
+        print(f'Writing {len(files)} files')
         for file in files:
             self.write_file(file, writer, files)
-
-    def get_root_output_dirs(self):
-        """Return a list of root directories the output file should be applied.
-        """
-        return [self.config.get_output_dir()]
-
-    def get_destination_paths(self, file):
-        """Multiple output destination directories are allowed. In the top of
-        the markdown, add an array of destination_dirs.
-        This may be coupled with a separate destination_filename. The output
-        directory cannot change and is collected from the self.config.
-
-            title: another
-            destination_dirs: other/foo/
-                              egg/butter
-            ---
-            # Hello
-        """
-
-
-        data_store = self.config.get_store(file)
-        dest_fn = data_store['destination_filename']
-
-        dest_dirs = data_store['meta'].get('destination_dirs', None) or ('',)
-
-        destinations = ()
-
-        # Iterate all outbound root sites, all directories.
-        # and the filename
-        output_dirs = self.get_output_dirs()
-        for output_dir in output_dirs:
-            for d_dir in dest_dirs:
-                out_path = output_dir / d_dir / dest_fn
-                destinations += (out_path, )
-
-        return destinations
 
     def finalize_content(self,):
         """Store the 'destination_paths' within the datastore.
@@ -284,18 +313,26 @@ class Writer(RenderFilesUtility):
             data_store['destination_paths'] = self.get_destination_paths(file)
 
     def write_file(self, file, writer, files):
+        print(  'write_file', file)
         data_store = self.config.get_store(file)
-        destinations = self.get_destination_paths(file)
+        rel_dests, destinations = self.get_destination_paths(file)
+        text = data_store.get('rendered_content', file.as_posix())
+        return self.write_text_to_destinations(destinations, text)
 
-        import pdb; pdb.set_trace()  # breakpoint b85c4280 //
+    def write_text_to_destinations(self, destinations, text):
         for out_path in destinations:
-            # out_path = self.output_dir / dest_fn
-            print('Write:', out_path)
-            if out_path.parent.exists() is False:
-                out_path.parent.mkdir(parents=True)
-            out_path.write_text(data_store['rendered_content'])
+            if out_path.suffix != '':
+                self.write_text_to_path(text, out_path)
 
-import unicodedata, re
+    def write_text_to_path(self, text, out_path, make_parents=True):
+        print('Write:', out_path)
+        if make_parents is True and (out_path.parent.exists() is False):
+            out_path.parent.mkdir(parents=True)
+        try:
+            out_path.write_text(text)
+        except Exception as exc:
+            import pdb; pdb.set_trace()  # breakpoint 0bd088c2x //
+            print(exc)
 
 def slugify(value):
     """

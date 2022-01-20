@@ -1,0 +1,9 @@
+<form method="post">{% csrf_token %}
+
+    {{ form.as_ul }}
+
+    <div class="url">
+        {{ form.urls }}
+    </div>
+    <input type="submit" value="Confirm">
+</form>

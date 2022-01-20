@@ -16,10 +16,25 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-from short.urls import path_include,path_includes
+from short.urls import path_include, path_includes, error_handlers
 
 app_name = 'shoppinglist'
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 ] + path_includes('products')
+
+
+error_handlers(__name__)
+# error_handlers(__name__, {
+#         400: 'shorts.views.errors.handler400',
+#         403: 'shorts.views.errors.handler403',
+#         404: 'shorts.views.errors.handler404',
+#         500: 'shorts.views.errors.handler500',
+#     }, template_dir='short/errors/'
+# )
+
+# handler404 = 'my_app_name.views.custom_page_not_found_view'
+# handler500 = 'my_app_name.views.custom_error_view'
+# handler403 = 'my_app_name.views.custom_permission_denied_view'
+# handler400 = 'my_app_name.views.custom_bad_request_view'

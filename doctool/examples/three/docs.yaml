@@ -1,0 +1,24 @@
+docs_dir: "C:/Users/jay/Documents/projects/desktop/docs"
+
+## the output directory of the finished files. if relative, the
+## config_path defines the root location.
+## If None, The default site name is applied.
+## Write: [full_root]\examples\three\site\terminology.html
+
+# output_dir: 'foo'
+## Write: [full_root]\examples\three\foo\terminology.html
+
+# output_dir: "[new root]/site"
+## Write: [new root]\site\terminology.html
+
+## The storage directory of the 'output_dir'. This should be absolute.
+## If relative, it's bound to the parent (likely cli) location.
+#output_root_dir: 'bob'
+#
+# If just 'output_root_dir' without other parameters,
+# the argument sites between the config root and the new site.
+## Write: [full_root]\examples\three\bob\site\terminology.html
+
+## The parent directory storing the site content,
+## This exists within the output_root_dir
+# site_dir_name: 'site'

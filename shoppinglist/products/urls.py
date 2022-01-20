@@ -16,6 +16,7 @@ Including another URLconf
 from django.urls import path
 
 from short import grab_models, urls as shorts, names
+# from short.urls import path_include, path_includes, error_handlers
 from . import views, models
 
 app_name = 'products'
@@ -24,4 +25,14 @@ urlpatterns = shorts.paths_default(views, grab_models(models),
     views=names.crud() + names.history(),
 )
 
+# urlpatterns += shorts.path_urls(views, {
+#         '/': shorts.template_view(name='home')
+#     })
 
+# urlpatterns += shorts.paths_redirect({
+#     '/': ('/home', True,),
+#     'out/': 'https://google.com',
+#     })
+
+
+# error_handlers(__name__)
