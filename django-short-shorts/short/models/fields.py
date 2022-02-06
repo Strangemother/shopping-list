@@ -6,8 +6,8 @@ def defaults(args, params, nil_sub=True, nil_key='nil', **kw):
     if nil_sub:
         # nil subtract, or substitution
         #  Nil. being blank+null - where nil=True
-        if 'nil' in kw:
-            val = kw.get('nil', None)
+        if ('nil' in kw) or ('nil' in params):
+            val = kw.get('nil', None) or params.get('nil', None)
 
             if isinstance(val, bool):
                 val = [val] * 2
@@ -17,8 +17,8 @@ def defaults(args, params, nil_sub=True, nil_key='nil', **kw):
     for k,v in kw.items():
         if k == nil_key:
             continue
-
         params.setdefault(k, v)
+    params.pop('nil', None)
     return params
 
 
@@ -185,14 +185,15 @@ def integer(*a, **kw):
         kw.setdefault('default', value)
     return models.IntegerField(*a, **kw)
 
+from django.contrib.auth import get_user_model as orig_get_user_model
 
 def get_user_model():
-    return settings.AUTH_USER_MODEL
+    return orig_get_user_model()
 
 
 def fk(other, *a, on_delete=None, **kw):
     kw = defaults(a, kw, on_delete=on_delete or models.CASCADE)
-    return models.ForeignKey(other, *a, on_delete=on_delete, **kw)
+    return models.ForeignKey(other, *a, **kw)
 
 
 def user_fk(*a,**kw):
