@@ -1,6 +1,7 @@
 import markdown
 import unicodedata, re
 from pathlib import Path
+from collections import defaultdict
 
 
 class Utility(object):
@@ -103,17 +104,10 @@ class RenderFilesUtility(Utility):
         """
         data_store = self.config.get_store(file)
 
-        dest_fn = data_store.get('destination_filename', None)
-        if dest_fn is None:
-            dest_fn = file.name
+        dest_fn = self.get_dest_filename(file)
 
         meta = data_store.get('meta') or {}
-        dest_dirs = meta.get('destination_dirs', None)
-
-        if dest_dirs is None:
-            dest_dirs = (Path(''),)
-            rp = self.config.get_root_path()
-            dest_dirs = (file.relative_to(rp).parent, )
+        dest_dirs = self.get_dest_dirs(file)
 
         destinations = ()
         rel_destinations = ()
@@ -149,6 +143,48 @@ class RenderFilesUtility(Utility):
     def render_file(self, filename, data_store, renderer):
         pass
 
+    def get_dest_dirs(self, file):
+        """Get from
+
+        1. meta
+            destination_dirs
+        2. else, path relative to the config root
+        """
+        data_store = self.config.get_store(file)
+        meta = data_store.get('meta') or {}
+        dest_dirs = meta.get('destination_dirs', None)
+
+        if dest_dirs is None:
+            dest_dirs = (Path(''),)
+            rp = self.config.get_root_path()
+            dest_dirs = (file.relative_to(rp).parent, )
+
+        return dest_dirs
+
+    def get_dest_filename(self, file):
+        '''Return the filename for this file given all config options available.
+        This occurs before the indexes changes (before finalising file tree)
+
+        1. from the datastore
+        2. The .md file name
+        3. the meta:
+            destination_filename
+        '''
+        data_store = self.config.get_store(file)
+
+        dest_fn = data_store.get('destination_filename', None)
+        if dest_fn is None:
+            dest_fn = file.name
+
+        meta = data_store.get('meta') or {}
+        destination_filenames = meta.get('destination_filename', None)
+        destination_filename = None
+
+        if destination_filenames is not None:
+            destination_filename = destination_filenames[0]
+
+        # meta data first, then filename, then datastore
+        return destination_filename or dest_fn
 
 class General(RenderFilesUtility):
     """The _General_ free tool incorporating most of the markdown parsing.
@@ -187,6 +223,14 @@ class General(RenderFilesUtility):
         data_store['content'] = content
         data_store['meta'] = meta
         data_store['rel_filename'] = path.relative_to(self.root_path)
+        data_store['name'] = meta.get('name',[path.name])[0]
+
+        words = ()
+        for line in meta.get('tags', ()):
+            _t = line.split(',')
+            words += tuple(map(str.strip, _t))
+
+        data_store['tags'] = data_store.get('tags', ()) + words
 
         return path
 
@@ -295,12 +339,30 @@ class Writer(RenderFilesUtility):
         return out_path
 
     def write_all(self, writer):
-        """given a ready writer class generate all the finished files."""
+        """given a ready writer class generate all the finished files.
+
+        A list of all files from the config:
+            files = self.get_files()
+
+        All files in the tree:
+            tree = self.out_tree
+
+        """
         # self.output_dir = self.config.get_output_dir()
+
+        ## Instead of the original files, use the new out_tree.
+        tree = self.out_tree
         files = self.get_files()
-        print(f'Writing {len(files)} files')
-        for file in files:
-            self.write_file(file, writer, files)
+
+        for key_path, tree_item in tree.items():
+            # Merge the tree entity with the
+            # file unit.
+            if tree_item.is_file:
+                self.write_file(tree_item.filepath, writer, files)
+
+        # print(f'Writing {len(files)} files')
+        # for file in files:
+        #     self.write_file(file, writer, files)
 
     def finalize_content(self,):
         """Store the 'destination_paths' within the datastore.
@@ -310,13 +372,208 @@ class Writer(RenderFilesUtility):
         files = self.get_files()
         for file in files:
             data_store = self.config.get_store(file)
-            data_store['destination_paths'] = self.get_destination_paths(file)
+            rel_dests, destinations = self.get_destination_paths(file)
+            # data_store['destination_abs_paths'] = destinations
+            # data_store['destination_rel_paths'] = rel_dests
+
+    def build_indexes(self):
+
+        tree = self.recurse_tree(self.config)
+        self.plug_file_tree(tree)
+        self.file_tree = tree
+        self.out_tree = self.generate_out_tree()
+
+    def plug_file_tree(self,tree):
+        """Alter the internal file tree to include generated files and renames.
+
+        To do so, the file writer will iterate the out_tree and write
+        every file in the index, taggedd against the target object
+
+        Change README
+        (root) index file
+        sitemap index
+        inject 'index' to empty directories
+
+        if "folder mode" all files change to /[filename]/index.html
+            testing for collisions.
+        """
+        # first do any renames,
+        # README -> index etc
+        #
+        # if no index or readme, (and not folder mode)
+        #   a new index file.
+        # Apply missing index files.
+        # add sitemap contents; master doc
+        for key_path, item in tree.items():
+            file = item.filepath
+            data_store = self.config.get_store(file)
+            if item.is_dir:
+                # Produce a clean lower version
+                flat_names = ()
+                for name in item.files:
+                    flat_names += ( str(Path(name).with_suffix('')).lower(), )
+
+                print('Is dir - check for index.')
+                # Ensure it has an index.
+                if ('index' in flat_names) is False:
+                    # rename the README
+                    if 'readme' in flat_names:
+                        # move
+                        print('move existing readme')
+
+                    else:
+                        # create new
+                        print('inject new file')
+
+            if item.is_file:
+                print('is file.')
+
+        print('plug_file_tree')
+
+    def generate_out_tree(self):
+        """Build the output index for the writer, utilising the generated file tree.
+
+        At this point the files are plugged. Injecy any data to the renderable
+        object - ready for the final html generation.
+        """
+        print('generate_out_tree')
+        return self.file_tree
+
+    def recurse_tree(self, config):
+        """Loop all files,
+        ensure a directory structure for final leaves."""
+        ## TODO!
+        refs = defaultdict(dict)
+        self.file_flats = defaultdict(set)
+        self.dir_flats = defaultdict(set)
+
+        self.r_tree = {}#defaultdict(TreeItem)
+
+        self.r_tree[()] = TreeItem(**{
+            'root': True,
+            'depth': -1,
+            # 'child_count':0,
+            'type': 'dir',
+            'filepath': Path('.'),
+            'item': '.',
+            'name': 'root',
+        })
+
+        for i, file in enumerate(self.get_files()):
+            # Write a reference 'dir structure'
+            self.grab_file(file, i)
+        self.print_tree()
+        return self.r_tree
+
+    def print_tree(self):
+        for k, v in self.r_tree.items():
+            l = f'{str(k):<70} {v}'
+            print(l)
+
+    def grab_file(self, file, index):
+        g = self.r_tree
+        ref_id = index
+
+        # host = self.config.get_host_path()
+        root_path = self.config.get_root_path()
+        rel_path = file.relative_to(root_path)
+        parts = rel_path.parts
+        tl = len(parts)
+        counter = 0
+
+        for i, current_node in enumerate(parts):
+            # From top down, create the content required.
+            path = parts[0:i+1]
+            # if len(path) == 0:
+            # the very _root_ of the work, likely a dir..
+            node = g.get(path, None)
+            is_file = tl == len(path)
+            if node is None:
+                node = {
+                    'type': 'file' if is_file else 'dir',
+                    'depth': len(path),
+                    # 'child_count': -1,
+                    'filepath': Path(*path),
+                    'item': path,
+                    'name': path[-1],
+                    # 'children': set()
+                }
+                g[path] = TreeItem(**node)
+
+            ppath = tuple(Path(*path).parent.parts)
+            parent = g.get(ppath, None)
+            if parent is None:
+                # build.
+                parent = TreeItem(
+                                type='dir',
+                                depth=len(ppath),
+                                item=ppath,
+                                name=ppath[-1],
+                            )
+                g[ppath] = parent
+                print('created', ppath, parent)
+
+            parent.children.add(current_node)
+            if is_file:
+                parent.files.add(current_node)
+
+            # parent.child_count += 1
+
+    def grab_file_leaf_up(self, file, index):
+        """
+        introduce a file into the graph reference, starting at the _end_ (leaf)
+        of a given path and stepping _up_ to the root.
+
+        Note. This isn't the best; It's better to walk top-down
+        """
+        g = self.r_tree
+        ref_id = index
+        # host = self.config.get_host_path()
+        root_path = self.config.get_root_path()
+        rel_path = file.relative_to(root_path)
+        parts = rel_path.parts
+        tl = len(parts)
+        counter = 0
+
+        g[rel_path.parts] = {
+                'out_path': rel_path,
+                'parent_path': rel_path.parent,
+                'type': 'file',
+                'child_count': -1,
+                'ref_id': ref_id,
+                'write': True,
+            }
+
+        upstack = parts
+        # Stack backward from the file to root
+        while len(upstack) > 1:
+            counter+=1
+            upstack = parts[:tl-counter]
+            print('upstack', upstack)
+            parent = g.get(upstack, None)
+            if parent is None:
+                parent = {
+                    'type': 'directory',
+                    'child_count': 0,
+                    'children': set()
+                }
+            # if counter == 1:
+            parent['child_count'] += 1
+            parent['children'].add(upstack[-1])
+            g[upstack] = parent
+        # Add a count of the name
+        self.file_flats[file.name].add(ref_id)
+        # add a count of the parent (children.)
+        self.dir_flats[rel_path.parent.parts].add(ref_id)
 
     def write_file(self, file, writer, files):
         print(  'write_file', file)
         data_store = self.config.get_store(file)
-        rel_dests, destinations = self.get_destination_paths(file)
+        # rel_dests, destinations = self.get_destination_paths(file)
+        # destinations = data_store['destination_abs_paths']
         text = data_store.get('rendered_content', file.as_posix())
+        import pdb; pdb.set_trace()  # breakpoint 2ce118d3 //
+
         return self.write_text_to_destinations(destinations, text)
 
     def write_text_to_destinations(self, destinations, text):
@@ -333,6 +590,42 @@ class Writer(RenderFilesUtility):
         except Exception as exc:
             import pdb; pdb.set_trace()  # breakpoint 0bd088c2x //
             print(exc)
+
+
+class TreeItem(object):
+    depth = 0
+    type = 'unknown'
+    child_count = None
+    name = None
+
+    def __init__(self, **kw):
+        self.children = set()
+        self.files = set()
+        self.__dict__.update(kw)
+
+    @property
+    def is_dir(self):
+        return self.type == 'dir'
+
+    @property
+    def is_file(self):
+        return self.type == 'file'
+
+    def __repr__(self):
+        is_file = self.type == 'file'
+        v =  '' if is_file else f'children={len(self.children)} '
+        _f = '' if is_file else f'files={len(self.files)} '
+
+        return (
+                # f'<{self.__class__.__name__}'
+                f'<T({self.type.upper()} '
+                f'"{self.name}" '
+                f'depth={self.depth} '
+                f'{_f}'
+                f'{v}'
+                f'{"" if is_file else Path(*self.item)}'
+                ')>')
+
 
 def slugify(value):
     """

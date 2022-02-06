@@ -87,7 +87,8 @@ class RenderBase(JinjaEnvLoaders):
             WikiLinks               wikilinks   markdown.extensions.wikilinks
         """
         extensions = [
-            'extra',
+            # 'extra',
+            'pymdownx.extra',
             'admonition',
             'codehilite',
             'meta',
@@ -95,6 +96,10 @@ class RenderBase(JinjaEnvLoaders):
             'smarty',
             'toc',
             'wikilinks',
+            'pymdownx.tasklist',
+            'pymdownx.magiclink',
+            'pymdownx.emoji',
+            'pymdownx.smartsymbols',
         ]
 
         return markdown.markdown(text, extensions=extensions)

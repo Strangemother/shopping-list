@@ -19,7 +19,6 @@ class UtilBase(object):
             r[util.name] = util
         self._utils = r
 
-
     def get_utils(self):
         return self._utils
 
