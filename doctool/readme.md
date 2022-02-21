@@ -1,5 +1,12 @@
 # Docs
 
+Run it:
+
+
+    (env) C:\Users\jay\Documents\projects\shopping-list\doctool>
+
+        py lib/run.py examples/one --config=examples/global_conf.yaml
+
 The markdown doc reader with _REAL_ extendability for docs.
 
 1. Target a directory of source, and docs.

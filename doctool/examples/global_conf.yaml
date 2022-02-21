@@ -1,6 +1,6 @@
 # Global config for any doc I generate.
 eggs: three
 base_utils: [
-  # 'utils.General',
+  'utils.General',
   'utils.Writer'
 ]
