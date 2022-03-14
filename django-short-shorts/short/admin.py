@@ -1,3 +1,15 @@
+"""
+Register your models in the admin -
+
+    from django.contrib import admin
+    from short import admin as shorts
+
+    from . import models
+
+    shorts.register_models(models)
+
+"""
+
 from django.contrib import admin
 
 # Register your models here.

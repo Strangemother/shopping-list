@@ -42,7 +42,7 @@ Short URL to help lighten the load for dev urls
 """
 from django.contrib import admin
 from django.urls import path, include as django_include
-from  django.views.generic import View
+from  django.views.generic import View, TemplateView
 
 import inspect
 
@@ -317,6 +317,24 @@ def paths_dict(views, patterns, view_prefix=None,
 
     return paths(**d)
 
+
+def template_view(url_string, html_path, name='template_view'):
+
+    # urlpatterns += [
+    #     shorts.template_view('mockup/', 'mockup/crystal-geometries.html')
+    # ]
+
+    return path(url_string, TemplateView.as_view(template_name=html_path), name=name)
+
+def as_templates(**props):
+    """
+
+        urlpatterns += shorts.as_templates(
+            geoms=('mockup/', 'mockup/crystal-geometries.html')
+        )
+
+    """
+    return [template_view(*v, name=k) for k,v in props.items()]
 
 def paths(**path_dict):
     """

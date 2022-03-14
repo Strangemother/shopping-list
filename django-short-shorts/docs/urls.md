@@ -3,6 +3,49 @@
 Django Short Shorts provides a range of url `path` setup functions for setting up your `urls.py` with less typing.
 
 
+## Quick start
+
+My personal favourite is the quickest:
+
+```py
+from short import urls as shorts
+from . import views
+
+urlpatterns = shorts.paths(
+    profile=('profile/', views.ProfileView,),
+    home=('', views.ProfileView,),
+)
+```
+
+Functionally identical to this:
+
+
+```py
+urlpatterns = [
+    path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('', views.ProfileView.as_view(), name='home'),
+```
+
+Go you just have some template files?
+
+```py
+urlpatterns += shorts.as_templates(
+    geoms=('mockup/', 'mockup/crystal-geometries.html'),
+    crystal1=('mockup/1/', 'mockup/crystal-1.html'),
+    crystal1=('mockup/home/', 'mockup/home.html'),
+)
+```
+
+Functionally identical to:
+
+```py
+urlpatterns = [
+    path('mockup/', views.TemplateView.as_view(name=..), name='geoms'),
+    #...
+]
+```
+## Integration Methods
+
 Firstly lets look at a few `path` urls using the standard method:
 
 ```py
