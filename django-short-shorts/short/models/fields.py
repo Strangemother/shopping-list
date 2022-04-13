@@ -583,7 +583,7 @@ int_big = big_int
 int_pos = pos_int
 int_small_pos = pos_small_int
 int_big_pos = pos_big_int
-
+int_ = integer
 dt_blank = blank_dt
 
 o2o_user = user_o2o
